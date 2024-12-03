@@ -1,0 +1,3 @@
+- [ ] Streaming support
+- [ ] JSON mode
+- [x] Image and file support
