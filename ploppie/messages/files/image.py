@@ -2,7 +2,6 @@ from PIL import Image as PILImage
 
 import io
 import base64
-import imghdr
 
 class Image:
     def __init__(self, file_handle):
@@ -53,8 +52,9 @@ class Image:
         # Read image data
         image_data = self.read_file()
 
-        # Retrieve image format through parsing the file data
-        image_format = imghdr.what(None, image_data)
+        # Open the image using Pillow to determine its format
+        with PILImage.open(image_data) as img:
+            image_format = img.format.lower()  # Get the format in lowercase
         
         # Check file size (2MB = 2 * 1024 * 1024 bytes)
         if len(image_data) > 2 * 1024 * 1024:

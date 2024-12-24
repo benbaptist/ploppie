@@ -2,7 +2,7 @@ from ploppie import Utility
 import random
 
 if __name__ == "__main__":
-    utility = Utility(model="gpt-4o-mini")
+    utility = Utility(model="ollama/llama3.2:1b")
 
     # Generate a random pretend error message
     error_messages = [
