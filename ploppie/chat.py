@@ -1,4 +1,4 @@
-from litellm import completion
+from litellm import completion, token_counter
 import logging
 import traceback
 
@@ -17,10 +17,14 @@ class Chat:
         # Create console handler if no handlers exist
         if not self.logger.handlers:
             console_handler = logging.StreamHandler()
-            console_handler.setLevel(logging.INFO)
+            console_handler.setLevel(logging.INFO if not self.kwargs.get("verbose", False) else logging.DEBUG)
             formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
             console_handler.setFormatter(formatter)
             self.logger.addHandler(console_handler)
+
+        # Set verbose logging if requested
+        if self.kwargs.get("verbose", False):
+            self.logger.setLevel(logging.DEBUG)
 
     def __str__(self):
         return f"<Chat(messages={len(self.messages)}, tools={len(self.tools)})>"
@@ -41,6 +45,13 @@ class Chat:
                 m["data"]["tool_calls"] = []
 
             self.messages.append(from_dict(m))
+
+    def token_counter(self, messages):
+        print(messages)
+        return token_counter(
+            model=self.kwargs.get("model", "gpt-4o-mini"),
+            messages=messages
+        )
     
     def dynamic(self):
         """
