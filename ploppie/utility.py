@@ -55,13 +55,14 @@ class Utility:
         self.logger.debug(f"Max tokens needed: {max_tokens}")
 
         while attempt < attempts:
-            # Add system message explaining the constraints
-            chat.system(message)
+            if attempt == 0:
+                # Add system message explaining the constraints
+                chat.system(message)
 
-            options_msg = f"You must respond with exactly one of these options, with no additional text: \n\n{'\n\n'.join(options)}"
-            chat.system(options_msg)
-            
-            self.logger.debug(f"System message: {options_msg}\n\n{message}")
+                options_msg = f"You must respond with exactly one of these options, with no additional text: \n\n{'\n\n'.join(options)}"
+                chat.system(options_msg)
+                
+                self.logger.debug(f"System message: {options_msg}\n\n{message}")
             
             # Get response from LLM
             responses = chat.ready()
@@ -84,6 +85,6 @@ class Utility:
             self.logger.debug(f"Attempt {attempt + 1} failed: {response}")
             
             # Add error message for invalid response
-            chat.system(f"Invalid selection. Please choose exactly one option from: {', '.join(options)}")
+            chat.system(f"INVALID SELECTION! {options_msg}")
         
         raise ValueError(f"Failed to get valid selection after {attempts} attempts")

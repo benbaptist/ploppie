@@ -16,13 +16,11 @@ if __name__ == "__main__":
 
     error_message = random.choice(error_messages)
 
-    error_message = error_messages[-1]
-
     print(f"Error message: {error_message}")
     
     # Diagnose the root cause of the pretend error
     result = utility.selector(
-        f"Based on the error message, what is the most likely root cause? Error message: {error_message}",
+        f"Based on the error message, what is the closest root cause? Error message: \n\n`{error_message}`",
         options=[
             "DATABASE_CONNECTION_ERROR",
             "INVALID_AUTHENTICATION_CREDENTIALS", 
