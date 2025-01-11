@@ -59,7 +59,8 @@ class Utility:
                 # Add system message explaining the constraints
                 chat.system(message)
 
-                options_msg = f"You must respond with exactly one of these options, with no additional text: \n\n{'\n\n'.join(options)}"
+                z = "\n\n".join(options)
+                options_msg = f"You must respond with exactly one of these options, with no additional text: \n\n{z}"
                 chat.system(options_msg)
                 
                 self.logger.debug(f"System message: {options_msg}\n\n{message}")
