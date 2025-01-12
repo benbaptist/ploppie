@@ -10,7 +10,6 @@ This section summarizes the essential modules and classes provided by the Ploppi
     - `send(message: str)`: Sends a user message to the chat.
     - `user(message: str)`: Appends a user message to the chat.
     - `assistant(message: str)`: Appends an assistant message to the chat.
-    - `call_tool(tool_call: ToolCall)`: Invokes a defined tool and processes its output.
     - `ready()`: Prepares the chat to send messages for processing.
 
 ### Message Classes

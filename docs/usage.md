@@ -9,24 +9,6 @@ To install the Ploppie library, run:
 pip install ploppie
 ```
 
-## Directory Structure
-The main directory structure of the Ploppie library is organized as follows:
-```
-ploppie/
-    ├── __init__.py          # Initialization file for the package
-    ├── chat.py              # The main chat management functionality
-    ├── utility.py           # Utility functions for chat processing
-    └── messages/            # Module for message definitions
-        ├── __init__.py      # Initialization file for messages
-        ├── assistant.py      # Assistant messages and tool calls
-        ├── dynamic.py        # Dynamic message handling
-        ├── message.py        # Base class for all messages
-        ├── system.py         # System messages
-        ├── toolcall.py       # Tool call management
-        ├── toolresult.py      # Tool result management
-        └── user.py           # User messages
-```
-
 ## Usage
 ### Import the Library
 To begin using Ploppie, you can import the necessary classes as follows:
@@ -37,18 +19,26 @@ from ploppie import Chat, Utility
 ### Creating a Chat Session
 You can create a chat session with the following code:
 ```python
-chat_session = Chat(verbose=True)  # Enables verbose logging
+chat_session = Chat(model="gpt-4o-mini", verbose=True)
 ```
 You can also pass any litellm completion()-supported parameter to Chat().
 
 
 ### Sending Messages
-You can send messages as either a user or assistant:
+You can add messages to the chat session as System, Assistant, or User messages:
 ```python
 chat_session.system("You are a helpful assistant.")
 chat_session.assistant("I can assist you with your queries.")
 chat_session.user("What can you do?")
 ```
+
+### Executing the Chat Session
+You can execute the chat session by calling `ready()`:
+```python
+responses = chat_session.ready()
+```
+
+`ready()` returns a list of responses, which you can then process as needed. In most cases, it'll only return one response.
 
 ### Using Tools
 You can define tools that the assistant can interact with via decorators:
@@ -62,8 +52,23 @@ def my_tool(param):
 You can add dynamic messages that are computed at runtime:
 ```python
 @chat_session.dynamic()
-def fetch_dynamic_content():
-    return "This content is dynamic!"
+def current_time():
+    return "The current time is " + datetime.now().strftime("%I:%M %p")
+```
+
+These dynamic messages are processed in the order they are added, and processed upon every call to `ready()`.
+
+### Using Utility
+You can use the Utility class to select from a list of options:
+```python
+time_of_day = datetime.now().strftime("%I:%M %p")
+
+response = Utility.selector(
+    "Pick a color that best matches the sky for this time of day: {time_of_day}",
+    options=["red", "yellow", "blue", "green", "purple", "orange", "pink"]
+)
+
+print(f"The color of the sky is {response} at {time_of_day}.")
 ```
 
 ## Conclusion
