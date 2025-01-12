@@ -77,7 +77,7 @@ chat = Chat(model="gpt-4o-mini")
 
 a = chat.system("Identify the objects in the image.") \
     .user(Image(content=open("path/to/image.jpg", "rb"))) \
-    .ready()  # Signals chat is ready for interaction
+    .ready()  # Signals chat is ready for execution
 
 print(a)
 ```
