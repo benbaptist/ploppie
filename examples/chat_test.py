@@ -9,6 +9,8 @@ from datetime import datetime
 if __name__ == "__main__":
     chat = Chat(model="gpt-4o-mini")
 
+    # Add a dynamic message that updates the current time, 
+    # called every time we send a message
     @chat.dynamic()
     def dynamic_message():
         return System("The current time is " + datetime.now().strftime("%H:%M:%S"))
