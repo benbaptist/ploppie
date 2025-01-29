@@ -112,37 +112,60 @@ class Chat:
             }
             
             # Add each parameter as a property
-            for param in tool["parameters"]:
+            for param, annotation in tool["parameters"].items():
                 if param == "return": continue
                 
-                # Get the function annotation for this parameter
-                annotation = tool["parameters"][param]
-                # Split the annotation string on ": " to get type and description
-                if isinstance(annotation, str) and ": " in annotation:
-                    param_type, param_desc = annotation.split(": ", 1)
+                # Get parameter type and description
+                param_type = "string"  # default type
+                param_desc = ""
 
-                    # Map param_type to JSON Schema type
-                    param_type = {
-                        "int": "number",
-                        "str": "string",
-                        "bool": "boolean",
-                        "float": "number"
-                    }.get(param_type.lower(), "string")
-
-                    tool_dict["function"]["parameters"]["properties"][param] = {
-                        "type": param_type.lower(),
-                        "description": param_desc
-                    }
-                    tool_dict["function"]["parameters"]["required"].append(param)
-                    continue
+                # Debug logging
+                self.logger.debug(f"Processing parameter {param} with annotation {annotation}")
                 
-                # If no annotation or not in string format, guess string
+                if isinstance(annotation, str):
+                    # Handle string annotations (e.g., "str: description")
+                    if ": " in annotation:
+                        type_str, param_desc = annotation.split(": ", 1)
+                        param_type = type_str.lower().strip()
+                    else:
+                        param_type = annotation.lower().strip()
+                        param_desc = f"Parameter of type {param_type}"
+                elif isinstance(annotation, type):
+                    # Handle type objects (e.g., str, int)
+                    param_type = annotation.__name__.lower()
+                    param_desc = f"Parameter of type {param_type}"
+                elif hasattr(annotation, "__origin__"):
+                    # Handle typing annotations (e.g., List[str], Optional[int])
+                    param_type = str(annotation).lower()
+                    param_desc = f"Parameter of type {param_type}"
+                else:
+                    # For any other case, convert to string representation
+                    param_type = str(type(annotation).__name__).lower()
+                    param_desc = f"Parameter of type {param_type}"
+                
+                # Map Python types to JSON Schema types
+                type_mapping = {
+                    "str": "string",
+                    "string": "string",
+                    "int": "number",
+                    "float": "number",
+                    "bool": "boolean",
+                    "dict": "object",
+                    "list": "array",
+                    "typing.list": "array",
+                    "typing.dict": "object",
+                    "typing.optional": "string"  # Default to string for optional
+                }
+                
+                mapped_type = type_mapping.get(param_type, "string")
+                self.logger.debug(f"Mapped {param_type} to {mapped_type}")
+                
                 tool_dict["function"]["parameters"]["properties"][param] = {
-                    "type": "string",
-                    "description": annotation
+                    "type": mapped_type,
+                    "description": param_desc  # Now using the string description instead of the type object
                 }
                 tool_dict["function"]["parameters"]["required"].append(param)
-                
+            
             tools_dict.append(tool_dict)
             
         return tools_dict
@@ -250,77 +273,120 @@ class Chat:
     
     def parse_chunk(self, chunk):
         """
-        Parses a chunk from the LLM
+        Parses a chunk from the LLM and returns the content and any tool calls
+        Returns a tuple of (content, tool_calls)
         """
-        pass
+        chunk_data = chunk.json()
+        delta = chunk_data["choices"][0]["delta"]
+        
+        content = delta.get("content", "")
+        tool_calls = []
+        
+        # Handle tool calls in the chunk
+        if "tool_calls" in delta:
+            for tool_call in delta["tool_calls"]:
+                # For the first chunk of a tool call
+                if "id" in tool_call:
+                    tool_calls.append(ToolCall(
+                        name=tool_call["function"]["name"],
+                        arguments=tool_call["function"].get("arguments", ""),
+                        id=tool_call["id"]
+                    ))
+                # For subsequent chunks of the same tool call
+                elif "function" in tool_call and "arguments" in tool_call["function"]:
+                    # Find the matching tool call and append arguments
+                    for existing_call in self.messages[-1].data["tool_calls"]:
+                        if existing_call.id == tool_call["index"]:
+                            existing_call.arguments += tool_call["function"]["arguments"]
+                            break
+        
+        return content, tool_calls
 
     def ready(self):
         """
         Sends the messages to the LLM and handles the response
         """
         responses = []
-        iteration = 0 # Used for debugging
-
-        while True:
-            iteration += 1
-            self.logger.debug(f"This is iteration #{iteration}")
-
-            try: 
-                response = completion(
-                    messages=self.messages_to_dict,
-                    tools=self.tools_to_dict if self.tools else None,
-                    **self.kwargs
-                )
+        
+        try:
+            response = completion(
+                messages=self.messages_to_dict,
+                tools=self.tools_to_dict if self.tools else None,
+                **self.kwargs
+            )
+        except Exception as e:
+            self.logger.error(f"Fatal error in completion: {e}")
+            self.logger.error(traceback.format_exc())
+            raise e
+        
+        if self.stream:
+            current_content = ""
+            current_tool_calls = []
+            
+            # Create an initial Assistant message to hold the streaming content
+            assistant_message = Assistant(content="", tool_calls=[])
+            self.messages.append(assistant_message)
+            
+            try:
+                for chunk in response:
+                    content, tool_calls = self.parse_chunk(chunk)
+                    
+                    # Update the current content
+                    if content:
+                        current_content += content
+                        assistant_message.data["content"] = current_content
+                        yield content
+                    
+                    # Update tool calls
+                    if tool_calls:
+                        current_tool_calls.extend(tool_calls)
+                        assistant_message.data["tool_calls"] = current_tool_calls
+                
+                # After the stream is done, process any tool calls
+                if current_tool_calls:
+                    self.logger.debug(f"Processing {len(current_tool_calls)} tool calls")
+                    for tool_call in current_tool_calls:
+                        self.logger.debug(f"Executing tool call {tool_call.name}")
+                        self.call_tool(tool_call)
+                    
+                    # Make another request to get the response after tool calls
+                    return self.ready()
+                
             except Exception as e:
-                self.logger.error(f"Fatal error in completion: {e}")
+                self.logger.error(f"Error during streaming: {e}")
                 self.logger.error(traceback.format_exc())
                 raise e
             
-            if self.stream:
-                for chunk in response:
-                    self.parse_chunk(chunk)
+        else:
+            # Non-streaming mode (existing code)
+            response = response.json()
+            message = response["choices"][0]["message"]
 
-            else:
-                response = response.json()
-                message = response["choices"][0]["message"]
+            tool_calls = []
+            if "tool_calls" in message:
+                if isinstance(message["tool_calls"], list):
+                    tool_calls = [
+                        ToolCall(
+                            name=t["function"]["name"],
+                            arguments=t["function"]["arguments"],
+                            id=t["id"]
+                        ) for t in message["tool_calls"]
+                    ]
 
-                tool_calls = []
-                if "tool_calls" in message:
-                    if isinstance(message["tool_calls"], list):
-                        # Convert the tool calls to our ToolCall objects
-                        tool_calls = [
-                            ToolCall(
-                                name=t["function"]["name"],
-                                arguments=t["function"]["arguments"],
-                                id=t["id"]
-                            ) for t in message["tool_calls"]
-                        ]
- 
-                # Get the content of the message - some APIs return null, yet 
-                # still require an empty string, so we check for that
-                content = message["content"] or ""
+            content = message["content"] or ""
+            self.messages.append(Assistant(
+                content=content, 
+                tool_calls=tool_calls
+            ))
 
-                self.messages.append(Assistant(
-                    content=content, 
-                    tool_calls=tool_calls
-                ))
+            if content:
+                responses.append(content)
 
-                # If there is content, add it to the responses
-                if content:
-                    responses.append(content)
-
-                # If there are tool calls, execute them
-                if tool_calls:
-                    self.logger.debug(f"There are {len(tool_calls)} tool calls")
-                    # Iterate through each tool call and execute it
-                    for tool_call in tool_calls:
-                        self.logger.debug(f"Executing tool call {tool_call.name}")
-
-                        # Execute the tool call
-                        self.call_tool(tool_call)
-
-                else:
-                    # If there are no tool calls, return the responses
-                    self.logger.debug("There are no tool calls on this iteration")
-                    self.logger.debug(f"Returning {len(responses)} responses")
-                    return responses
+            if tool_calls:
+                self.logger.debug(f"Processing {len(tool_calls)} tool calls")
+                for tool_call in tool_calls:
+                    self.logger.debug(f"Executing tool call {tool_call.name}")
+                    self.call_tool(tool_call)
+                return self.ready()
+            
+            return responses
