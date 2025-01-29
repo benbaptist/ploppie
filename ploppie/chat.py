@@ -97,6 +97,10 @@ class Chat:
         """
         tools_dict = []
         for name, tool in self.tools.items():
+            # Skip internal/private tools (starting with __)
+            if name.startswith("__"):
+                continue
+            
             tool_dict = {
                 "type": "function",
                 "function": { 
