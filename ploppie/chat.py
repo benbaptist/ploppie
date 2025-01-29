@@ -47,7 +47,6 @@ class Chat:
             self.messages.append(from_dict(m))
 
     def token_counter(self, messages):
-        print(messages)
         return token_counter(
             model=self.kwargs.get("model", "gpt-4o-mini"),
             messages=messages
@@ -280,26 +279,8 @@ class Chat:
         delta = chunk_data["choices"][0]["delta"]
         
         content = delta.get("content", "")
-        tool_calls = []
-        
-        # Handle tool calls in the chunk
-        if "tool_calls" in delta:
-            for tool_call in delta["tool_calls"]:
-                # For the first chunk of a tool call
-                if "id" in tool_call:
-                    tool_calls.append(ToolCall(
-                        name=tool_call["function"]["name"],
-                        arguments=tool_call["function"].get("arguments", ""),
-                        id=tool_call["id"]
-                    ))
-                # For subsequent chunks of the same tool call
-                elif "function" in tool_call and "arguments" in tool_call["function"]:
-                    # Find the matching tool call and append arguments
-                    for existing_call in self.messages[-1].data["tool_calls"]:
-                        if existing_call.id == tool_call["index"]:
-                            existing_call.arguments += tool_call["function"]["arguments"]
-                            break
-        
+        tool_calls = delta.get("tool_calls", [])
+                    
         return content, tool_calls
 
     def ready(self):
@@ -339,16 +320,50 @@ class Chat:
                     
                     # Update tool calls
                     if tool_calls:
-                        current_tool_calls.extend(tool_calls)
+                        # Consolidate tool calls by ID
+                        for tool_call in tool_calls:
+                            # Find existing tool call with same index
+                            existing_call = None
+                            for call in current_tool_calls:
+                                if call["index"] == tool_call["index"]:
+                                    existing_call = call
+                                    break
+                            
+                            if existing_call:
+                                # Update existing call with new data
+                                if tool_call["id"]:
+                                    existing_call["id"] = tool_call["id"]
+                                if tool_call["function"]["name"]:
+                                    existing_call["function"]["name"] += tool_call["function"]["name"]
+                                if tool_call["function"]["arguments"]:
+                                    existing_call["function"]["arguments"] += tool_call["function"]["arguments"]
+                            else:
+                                # Add new tool call
+                                current_tool_calls.append(tool_call)
+                        
                         assistant_message.data["tool_calls"] = current_tool_calls
                 
                 # After the stream is done, process any tool calls
                 if current_tool_calls:
                     self.logger.debug(f"Processing {len(current_tool_calls)} tool calls")
+
+                    tool_calls = []
+
                     for tool_call in current_tool_calls:
+
+                        tool_call = ToolCall(
+                            name=tool_call["function"]["name"],
+                            arguments=tool_call["function"].get("arguments", ""),
+                            id=tool_call["id"]
+                        )
+
+                        tool_calls.append(tool_call)
+
                         self.logger.debug(f"Executing tool call {tool_call.name}")
                         self.call_tool(tool_call)
-                    
+                        
+                    assistant_message.data["tool_calls"] = tool_calls
+
                     # Make another request to get the response after tool calls
                     return self.ready()
                 

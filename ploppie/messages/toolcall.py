@@ -1,7 +1,7 @@
 import json
 
 class ToolCall:
-    def __init__(self, name: str, arguments: dict, id: str):
+    def __init__(self, name: str, arguments: str, id: str):
         self.data = {
             "name": name,
             "arguments": arguments,
@@ -18,7 +18,10 @@ class ToolCall:
     @property
     def arguments(self):
         if isinstance(self.data["arguments"], str):
-            return json.loads(self.data["arguments"])
+            if len(self.data["arguments"]) > 0:
+                return json.loads(self.data["arguments"])
+            else:
+                return {}
         return self.data["arguments"]
     
     @property
