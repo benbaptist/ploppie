@@ -2,7 +2,7 @@ from ploppie import Chat
 
 if __name__ == "__main__":
     # Create a Chat instance with streaming enabled
-    chat = Chat(model="gpt-4o-mini", stream=True, verbose=False)
+    chat = Chat(model="gpt-4o-mini", stream=True, verbose=True)
 
     @chat.tool("Perform mathematical calculations")
     def calculate(expression: "str: The mathematical expression to evaluate"):

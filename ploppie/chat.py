@@ -10,21 +10,23 @@ class Chat:
         self.messages = []
         self.tools = {}
         
-        # Set up logging
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.INFO)
+        # Set up logging with a unique namespace
+        self.logger = logging.getLogger(f"ploppie.chat.{id(self)}")  # Using unique ID per instance
+        # Force this logger to propagate up to parent loggers
+        self.logger.propagate = True
+        # Always set initial level
+        self.logger.setLevel(logging.DEBUG if self.kwargs.get("verbose", False) else logging.INFO)
         
-        # Create console handler if no handlers exist
-        if not self.logger.handlers:
-            console_handler = logging.StreamHandler()
-            console_handler.setLevel(logging.INFO if not self.kwargs.get("verbose", False) else logging.DEBUG)
-            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-            console_handler.setFormatter(formatter)
-            self.logger.addHandler(console_handler)
-
-        # Set verbose logging if requested
-        if self.kwargs.get("verbose", False):
-            self.logger.setLevel(logging.DEBUG)
+        # Remove any existing handlers to prevent duplicate logging
+        for handler in self.logger.handlers[:]:
+            self.logger.removeHandler(handler)
+            
+        # Create console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.DEBUG if self.kwargs.get("verbose", False) else logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        console_handler.setFormatter(formatter)
+        self.logger.addHandler(console_handler)
 
     def __str__(self):
         return f"<Chat(messages={len(self.messages)}, tools={len(self.tools)})>"
