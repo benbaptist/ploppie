@@ -107,7 +107,6 @@ class Chat:
         Calls a hook with the given name
         """
         if name not in self.hooks:
-            self.logger.warning(f"Hook {name} not implemented")
             raise NotImplementedError(f"Hook {name} not implemented")
         
         return self.hooks[name](*args, **kwargs)
@@ -348,7 +347,7 @@ class Chat:
             raise e
         
         if self.stream:
-            return self._handle_streaming_response(response)
+            return self._handle_streaming_response(response, maximum_iterations)
         else:
             # Non-streaming mode
             response = response.json()
@@ -383,7 +382,7 @@ class Chat:
             
             return responses
 
-    def _handle_streaming_response(self, response):
+    def _handle_streaming_response(self, response, maximum_iterations):
         """
         Helper method to handle streaming responses
         """
