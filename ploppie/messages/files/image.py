@@ -53,7 +53,9 @@ class Image:
         image_data = self.read_file()
 
         # Open the image using Pillow to determine its format
-        with PILImage.open(image_data) as img:
+        # Convert bytes to BytesIO since PIL expects a file-like object
+        image_data_ = io.BytesIO(image_data)
+        with PILImage.open(image_data_) as img:
             image_format = img.format.lower()  # Get the format in lowercase
         
         # Check file size (2MB = 2 * 1024 * 1024 bytes)
