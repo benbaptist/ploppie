@@ -9,4 +9,5 @@ if __name__ == "__main__":
         .user(Image(file_handle=open("examples/test.png", "rb"))) \
         .ready()
     
-    print(a)
+    for msg in a:
+        print(msg)

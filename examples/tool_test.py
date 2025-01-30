@@ -12,4 +12,8 @@ if __name__ == "__main__":
     def random_number(min: "int: The minimum value", max: "int: The maximum value"):
         return random.randint(min, max)
     
-    print(chat.send("What is 2502 * 2502, and 2858 - 28592? Please tell me the result. And then throw me a random number for giggles."))
+    response = chat.system("You are a helpful assistant that can perform mathematical calculations and generate random numbers.") \
+        .user("What is 2502 * 2502, and 2858 - 28592? Please tell me the result. And then throw me a random number for giggles.") \
+        .ready()
+
+    print(response)
