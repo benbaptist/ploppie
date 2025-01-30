@@ -9,6 +9,7 @@ class Chat:
         self.kwargs = kwargs
         self.messages = []
         self.tools = {}
+        self.hooks = {}
         
         # Set up logging with a unique namespace
         self.logger = logging.getLogger(f"ploppie.chat.{id(self)}")  # Using unique ID per instance
@@ -92,11 +93,37 @@ class Chat:
             return func
         return decorator
     
+    def hook(self, name: str):
+        """
+        Decorator for hooking into the chat lifecycle, for deeper integrations
+        """
+        def decorator(func):
+            self.hooks[name] = func
+            return func
+        return decorator
+    
+    def call_hook(self, name: str, *args, **kwargs):
+        """
+        Calls a hook with the given name
+        """
+        if name not in self.hooks:
+            self.logger.warning(f"Hook {name} not implemented")
+            raise NotImplementedError(f"Hook {name} not implemented")
+        
+        return self.hooks[name](*args, **kwargs)
+    
     @property
     def tools_to_dict(self):
         """
         Converts the tools to the OpenAI JSON schema format
         """
+
+        # Call the get_tools hook
+        try:
+            return self.call_hook("list_tools")
+        except NotImplementedError:
+            pass
+
         tools_dict = []
         for name, tool in self.tools.items():
             # Skip internal/private tools (starting with __)
@@ -169,9 +196,13 @@ class Chat:
                     "type": mapped_type,
                     "description": param_desc  # Now using the string description instead of the type object
                 }
+
                 tool_dict["function"]["parameters"]["required"].append(param)
             
             tools_dict.append(tool_dict)
+
+        if len(tools_dict) == 0:
+            return None
             
         return tools_dict
     
@@ -259,7 +290,11 @@ class Chat:
         """
         Calls a tool with the given ToolCall object, used internally by the ready() method
         """
-        tool_result = self.tools[tool_call.name]["function"](**tool_call.arguments)
+        # Call the call_tool hook
+        try:
+            tool_result = self.call_hook("call_tool", tool_call)
+        except NotImplementedError:
+            tool_result = self.tools[tool_call.name]["function"](**tool_call.arguments)
         
         self.logger.debug(f"Tool call {tool_call.name} returned")
 
@@ -289,16 +324,22 @@ class Chat:
                     
         return content, tool_calls
 
-    def ready(self):
+    def ready(self, maximum_iterations=32):
         """
         Sends the messages to the LLM and handles the response
+
+        :param maximum_iterations: Maximum number of iterations to try before giving up
         """
+
+        if maximum_iterations <= 0:
+            raise RuntimeError("Maximum iterations reached")
+
         responses = []
         
         try:
             response = completion(
                 messages=self.messages_to_dict,
-                tools=self.tools_to_dict if self.tools else None,
+                tools=self.tools_to_dict,
                 **self.kwargs
             )
         except Exception as e:
@@ -338,7 +379,7 @@ class Chat:
                 for tool_call in tool_calls:
                     self.logger.debug(f"Executing tool call {tool_call.name}")
                     self.call_tool(tool_call)
-                return self.ready()
+                return self.ready(maximum_iterations - 1)
             
             return responses
 
@@ -400,7 +441,7 @@ class Chat:
                     self.call_tool(tool_call)
                 
                 assistant_message.data["tool_calls"] = tool_calls
-                return self.ready()
+                return self.ready(maximum_iterations - 1)
             
         except Exception as e:
             self.logger.error(f"Error during streaming: {e}")
