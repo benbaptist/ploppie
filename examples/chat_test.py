@@ -22,7 +22,7 @@ if __name__ == "__main__":
         try:
             return eval(expression)
         except Exception as e:
-            return f"I'm sorry, I can't calculate that. ({e})"
+            return f"I'm sorry, I couldn't calculate that. ({e})"
     
     while True:
         input_ = input("<You> ")
@@ -43,6 +43,7 @@ if __name__ == "__main__":
                 chat.system(f"File not found: {file_path} - please inform the user")
                 print(f"* File not found: {file_path}")
 
+        # The chat.send() method is useful for pushing multiple messages at once
         responses = chat.send(inputs)
 
         for response in responses:
