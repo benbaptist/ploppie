@@ -7,6 +7,8 @@ setup(
     install_requires=[
         "litellm",
         "pillow",
+        "soundfile",
+        "librosa"
     ],
     author="Ben Baptist",
     author_email="me@benbaptist.com",

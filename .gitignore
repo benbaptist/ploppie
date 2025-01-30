@@ -1,6 +1,7 @@
 chat.json
 publish.sh
 .git.old/
+.DS_Store
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
