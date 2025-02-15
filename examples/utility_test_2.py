@@ -10,7 +10,8 @@ if __name__ == "__main__":
         "Can I get the spicy chicken burger with fries and a milkshake?",
         "I want the seafood pasta with garlic bread, and make it extra spicy",
         "Just a caesar salad and an iced tea for me, dressing on the side",
-        "I'll have the steak, medium rare, with mashed potatoes"
+        "I'll have the steak, medium rare, with mashed potatoes",
+        "The sky is blue."
     ]
 
     customer_order = random.choice(orders)
@@ -29,7 +30,8 @@ if __name__ == "__main__":
             "SPECIAL_INSTRUCTIONS",
             "SEAFOOD"
         ],
-        multi_select=True
+        multi_select=True,
+        min_matches=0
     )
 
     # Print the identified order characteristics
